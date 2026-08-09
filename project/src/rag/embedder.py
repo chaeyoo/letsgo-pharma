@@ -1,21 +1,26 @@
 """임베더 (Embedder) — 텍스트를 벡터로.
 
 핵심 설계: **provider 교체 가능(pluggable)** 구조.
-- 오프라인 기본값: TF-IDF 희소 벡터(외부 의존성·API 키 불필요). 데모가 항상 돌아간다.
+- 기본값(auto): 로컬 밀집임베딩(sentence-transformers, 의미 매칭) — 미설치/모델
+  미캐시 환경에선 TF-IDF 희소 벡터로 자동 폴백해 데모가 항상 돌아간다.
 - 실무 확장 지점: `EmbeddingProvider` 를 구현하면 상용 임베딩 API
   (예: OpenAI/Cohere/Voyage 임베딩)로 그대로 교체 가능하다.
 
-벡터는 {term: weight} 형태의 희소 dict 로 표현하고, 코사인 유사도로 비교한다.
-(numpy 등 무거운 의존성 없이 순수 파이썬으로 구현)
+벡터는 {key: weight} 형태의 dict 로 표현하고, 코사인 유사도로 비교한다.
+희소 임베더는 key=단어, 밀집 임베더는 key=차원 인덱스 문자열로 담아
+(VoyageEmbedder 선례) cosine()/vectorstore 계약을 공유한다.
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import os
 from collections import Counter
 from typing import Protocol
 
+from .. import config
+from ..observability import logger
 from .textutil import tokenize
 
 SparseVec = dict[str, float]
@@ -174,6 +179,74 @@ class VoyageEmbedder:
         return {str(i): float(v) for i, v in enumerate(dense)}
 
 
+@functools.lru_cache(maxsize=4)
+def _load_st_model(model_name: str, local_files_only: bool):
+    """sentence-transformers 모델 로더 — 프로세스당 1회만 로드(지배 비용).
+
+    lru_cache 싱글턴이라 evaluate 의 provider 비교·sweep 의 파이프라인 다중
+    재구축·테스트 세션이 같은 모델 객체를 공유한다. lazy import 라 ml 미설치
+    환경에선 ImportError 가 나고, auto 는 이를 폴백 신호로 쓴다.
+    """
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer(model_name, local_files_only=local_files_only)
+
+
+class SentenceTransformerEmbedder:
+    """로컬 밀집임베딩 provider (sentence-transformers) — 의미 매칭 담당.
+
+    BM25/TF-IDF 는 어휘(정확 단어) 신호라 동의어·의역은 synonyms.py 사전에
+    의존했다. 밀집임베딩은 그 갭(사전에 없는 의미 유사)을 벡터 공간에서 메운다.
+
+    e5 계열은 비대칭 검색용 prefix 를 요구한다(query:/passage:). Protocol 은
+    fit/embed 만 있어 질의·문서를 구분할 수 없으므로: fit() 에서 코퍼스를
+    passage prefix 로 배치 인코딩해 {원문: 벡터} 캐시에 담고, embed() 는
+    캐시 히트 = 색인 경로(passage 벡터 반환), 미스 = 질의 경로(query prefix
+    인코딩)로 판정한다. vectorstore.index() 가 fit 직후 같은 텍스트로 embed
+    를 재호출하는 기존 흐름에 무수정으로 맞아떨어진다. (질의가 청크 원문과
+    완전 동일한 엣지는 청크에 '[제목 > 섹션]' prefix 가 붙어 실질 발생 불가)
+    """
+
+    def __init__(
+        self,
+        model_name: str | None = None,
+        model=None,
+        local_files_only: bool = False,
+    ) -> None:
+        self.model_name = model_name or config.EMBEDDING_MODEL
+        # 테스트는 .encode() 만 가진 스텁을 model 로 주입해 torch 없이 검증한다.
+        self._model = model if model is not None else _load_st_model(self.model_name, local_files_only)
+        self._passage_cache: dict[str, SparseVec] = {}
+        self._fitted = False
+        # 무신호 계약용 바닥값 — 밀집 코사인은 무관 질의에도 0 이 안 나온다.
+        # retriever._hybrid 가 getattr 로 읽는다(희소 임베더는 속성 없음 = 0.0).
+        self.no_signal_floor = config.DENSE_SIGNAL_FLOOR
+
+    @staticmethod
+    def _wrap(vec) -> SparseVec:
+        # dense 벡터를 {index: value} 로 담아 cosine()/vectorstore 와 호환(Voyage 선례)
+        return {str(i): float(v) for i, v in enumerate(vec)}
+
+    def fit(self, corpus: list[str]) -> None:
+        """코퍼스를 passage 로 배치 인코딩해 캐시 — 색인 경로의 사실상 임베딩 캐시."""
+        vecs = self._model.encode(
+            [f"passage: {t}" for t in corpus],
+            normalize_embeddings=True,
+            batch_size=32,
+        )
+        self._passage_cache = {t: self._wrap(v) for t, v in zip(corpus, vecs)}
+        self._fitted = True
+
+    def embed(self, text: str) -> SparseVec:
+        if not self._fitted:
+            raise RuntimeError("embed() 전에 fit()을 먼저 호출해야 한다.")
+        cached = self._passage_cache.get(text)
+        if cached is not None:
+            return cached  # 색인 경로: fit 에서 만든 passage 벡터
+        vec = self._model.encode(f"query: {text}", normalize_embeddings=True)
+        return self._wrap(vec)
+
+
 def cosine(a: SparseVec, b: SparseVec) -> float:
     """두 희소 벡터의 코사인 유사도. (이미 L2 정규화됐다면 내적과 동일)"""
     if not a or not b:
@@ -187,12 +260,31 @@ def cosine(a: SparseVec, b: SparseVec) -> float:
     return dot / (na * nb)
 
 
-def get_embedder(kind: str = "tfidf") -> EmbeddingProvider:
-    """임베더 팩토리. EMBEDDER_KIND 환경변수/설정으로 provider 를 교체한다."""
+def get_embedder(kind: str = "auto") -> EmbeddingProvider:
+    """임베더 팩토리. EMBEDDER_KIND 환경변수/설정으로 provider 를 교체한다.
+
+    - auto(기본): 밀집임베딩을 '이미 받아둔 것만'(local_files_only) 시도하고,
+      미설치/모델 미캐시면 TF-IDF 로 폴백한다 — 기동이 수백 MB 다운로드로
+      블록되거나 오프라인 환경에서 죽는 일이 없다. 폴백은 warning 1줄로 남긴다.
+    - dense: 명시 요구 → 폴백 없이 실패를 전파한다(다운로드는 허용).
+      '명시 설정은 시끄럽게 실패' — voyage 의 API 키 계약과 같은 원칙.
+    """
     if kind == "tfidf":
         return TfidfEmbedder()
     if kind == "hashing":
         return HashingEmbedder()
     if kind == "voyage":
         return VoyageEmbedder()
+    if kind == "dense":
+        return SentenceTransformerEmbedder()
+    if kind == "auto":
+        try:
+            return SentenceTransformerEmbedder(local_files_only=True)
+        except Exception as e:  # ImportError(미설치)·OSError(모델 미캐시) 등
+            logger.warning(
+                "밀집임베딩 사용 불가(%s: %s) — TF-IDF 로 폴백. 활성화: "
+                "pip install -r requirements-ml.txt && python scripts/download_embedding_model.py",
+                type(e).__name__, e,
+            )
+            return TfidfEmbedder()
     raise ValueError(f"알 수 없는 임베더: {kind}")

@@ -1,6 +1,6 @@
 # RAPV-Assistant 의존성 (Python 3.11+)
-# RAG 파이프라인은 외부 ML 라이브러리 없이 순수 파이썬으로 구현되어
-# numpy/torch/sentence-transformers 등 무거운 의존성이 없다.
+# 기본 설치는 경량이다 — RAG 벡터 측은 TF-IDF(순수 파이썬) 폴백으로 동작한다.
+# 밀집임베딩(sentence-transformers, 기본 provider)은 requirements-ml.txt 선택 설치.
 fastapi==0.139.0
 uvicorn==0.50.2
 fastmcp==3.4.3

@@ -60,7 +60,7 @@ flowchart TB
     T5 --> PV["💊 PV 도메인 케이스 처리<br/>트리아지→인과성(WHO-UMC)<br/>→코딩(MedDRA 방식)→최소요건 검증"]
     T4 --> PV
     subgraph RAG_PIPE["RAG (검색 최적화)"]
-        C1["청킹<br/>(구조+overlap)"] --> C2["임베딩<br/>(TF-IDF, pluggable)"]
+        C1["청킹<br/>(구조+overlap)"] --> C2["임베딩<br/>(밀집 e5 기본 ·<br/>TF-IDF 폴백, pluggable)"]
         C0["질의확장<br/>(도메인 동의어)"] --> C3["하이브리드 검색<br/>벡터 + BM25"]
         C2 --> C3
         C3 --> C4["리랭킹 v3<br/>(Cross-Encoder 근사<br/>4신호+섹션 타입 prior<br/>·원질의+확장 보조)"]
@@ -86,7 +86,7 @@ flowchart TB
 
 | 공고 요구 | 이 프로젝트에서 | 위치 |
 |---|---|---|
-| **RAG 최적화** | 구조 청킹, 하이브리드(벡터+BM25), 4신호 리랭킹+섹션 prior, 질의확장, 스윕/ablation 재현 | `src/rag/`, `eval/` |
+| **RAG 최적화** | 구조 청킹, 하이브리드(밀집임베딩 e5+BM25 — TF-IDF 자동 폴백), 4신호 리랭킹+섹션 prior, 질의확장, 스윕/ablation 재현 | `src/rag/`, `eval/` |
 | **제약/바이오 산업 이해** | RA·PV 도메인 도구 — RA: 검색·마감·체크리스트 / PV: 트리아지→인과성→코딩(3계층)→ICSR 초안 + 라벨 22케이스 평가 | `src/ra/`, `src/pv/`, `eval/pv_eval.py` |
 | **개인정보 보호** | PII 비식별화 2겹(에이전트 입구+도구 계층) — 한글 직결·조사 표기까지 룩어라운드 경계 | `src/pv/redactor.py` |
 | **MCP / FastMCP** | Tools 7 + Resource + Prompt(3대 primitive), 독립 HTTP 서버(운영)/stdio(Claude Desktop) | `src/mcp_server/server.py` |
@@ -98,7 +98,7 @@ flowchart TB
 | **배포 전 점검(FDE Day-0)** | 설정·코퍼스·업무데이터·스모크+안전장치 자가 테스트 — 실패 시 기동 차단 | `src/preflight.py` |
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
-| **테스트/CI** | pytest 334케이스(불변식/fuzz 포함) + Actions(preflight+평가 4종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
+| **테스트/CI** | pytest 343케이스(불변식/fuzz 포함) + Actions(preflight+평가 4종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
 
 ## 5. 실행 방법
 
@@ -106,9 +106,13 @@ flowchart TB
 cd project
 ./run.sh          # venv + 의존성 + 배포 전 점검(preflight) + 서버 → http://127.0.0.1:8000
 export ANTHROPIC_API_KEY=sk-ant-...   # (선택) LLM 모드 — 없어도 오프라인 grounded 답변으로 항상 동작
+
+# (선택) 밀집임베딩 활성화 — 미설치 환경은 TF-IDF 로 자동 폴백해 항상 동작한다
+.venv/bin/pip install -r requirements-ml.txt
+.venv/bin/python scripts/download_embedding_model.py   # multilingual-e5-small 1회 다운로드
 ```
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(334케이스) ·
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(343케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval`(평가 5종, 95% CI 병기).
 CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다. MCP 단독 실행·Claude Desktop 연결은
 [사용자 가이드](description/가이드.md) 참고.
@@ -124,8 +128,8 @@ CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다. MCP 단�
 
 | 영역 | 지표 | 값 |
 |---|---|---|
-| 검색(개발셋 32) | Hit@1 (벡터만 → 전체 파이프라인) | 0.875 → **1.000** [0.893, 1.000] |
-| 검색(개발셋 32) | HardNegHit@1 / ContextRecall | 0.786 → **1.000** / 0.781 → **0.969** |
+| 검색(개발셋 32) | Hit@1 (벡터만 → 전체 파이프라인) | 0.938 → **1.000** [0.893, 1.000] |
+| 검색(개발셋 32) | HardNegHit@1 / ContextRecall (전체 파이프라인) | **1.000** / **0.969** — 밀집임베딩(e5) 전환으로 벡터 단독 HardNeg 0.786→**1.000**, ContextRecall 0.781→**0.969** |
 | **검색(홀드아웃 6)** | **Hit@1 — 일반화 근사** | **1.000** [0.610, 1.000] (v9 라벨 교정 — 교정 전 0.833, 유일 실패는 복수 정답 라벨 모호성) |
 | 신뢰성(32+8) | Groundedness / AbstentionAcc / OverAbstain | **1.000** / **1.000** (n=8) / **0.000** |
 | PV(라벨 22) | 중대성·기한·인과성·보고요건 정확도 | 모두 **1.000** (규칙 회귀는 CI가 잡음) |

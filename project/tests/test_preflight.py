@@ -287,6 +287,28 @@ def test_config_check_catches_contradictions(monkeypatch):
     assert any("CHUNK_OVERLAP" in p for p in problems)
 
 
+def test_config_check_embedder_kind_values(monkeypatch):
+    """EMBEDDER_KIND 유효값에 auto/dense 포함 — 오타는 기동 전에 잡는다."""
+    monkeypatch.setattr(config, "EMBEDDER_KIND", "nope")
+    assert any("EMBEDDER_KIND" in p for p in preflight.check_config())
+    monkeypatch.setattr(config, "EMBEDDER_KIND", "auto")
+    assert not any("EMBEDDER_KIND" in p for p in preflight.check_config())
+
+
+def test_config_check_dense_requires_loadable_model(monkeypatch):
+    """dense 명시(폴백 없음)인데 모델 로드 불가면 기동 전에 실패해야 한다 —
+    기동 후 수백 MB 다운로드 블록/런타임 예외보다 preflight 실패가 낫다."""
+    from src.rag import embedder as em
+
+    monkeypatch.setattr(config, "EMBEDDER_KIND", "dense")
+
+    def _boom(model_name, local_files_only):
+        raise ImportError("sentence_transformers 미설치")
+
+    monkeypatch.setattr(em, "_load_st_model", _boom)
+    assert any("dense" in p for p in preflight.check_config())
+
+
 def test_corpus_check_accepts_valid_two_tier_chain(tmp_path):
     """정당한 2단 폐지 체인(구판→중간판(폐지)→현행)은 결함이 아니다. (v8)
 

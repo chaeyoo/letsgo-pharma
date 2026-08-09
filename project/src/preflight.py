@@ -208,10 +208,28 @@ def check_config() -> list[str]:
         )
     if config.RERANK_TOP_N < 1 or config.RETRIEVE_TOP_K < 1:
         problems.append("RERANK_TOP_N/RETRIEVE_TOP_K 는 1 이상이어야 한다")
-    if config.EMBEDDER_KIND not in ("tfidf", "hashing", "voyage"):
-        problems.append(f"EMBEDDER_KIND('{config.EMBEDDER_KIND}')는 tfidf|hashing|voyage 중 하나여야 한다")
+    if config.EMBEDDER_KIND not in ("auto", "dense", "tfidf", "hashing", "voyage"):
+        problems.append(
+            f"EMBEDDER_KIND('{config.EMBEDDER_KIND}')는 auto|dense|tfidf|hashing|voyage 중 하나여야 한다"
+        )
     if config.EMBEDDER_KIND == "voyage" and not os.environ.get("VOYAGE_API_KEY", ""):
         problems.append("EMBEDDER_KIND=voyage 인데 VOYAGE_API_KEY 가 없다")
+    if config.EMBEDDER_KIND == "dense":
+        # dense 는 명시 요구(폴백 없음) — 기동 후 수백 MB 다운로드로 블록되거나
+        # 죽기 전에, 로컬 캐시에서 로드 가능함을 여기서 확인한다(voyage 키 검사와
+        # 같은 계열: 명시 설정의 전제조건 점검). lru_cache 라 스모크가 재사용한다.
+        try:
+            from .rag.embedder import _load_st_model
+
+            _load_st_model(config.EMBEDDING_MODEL, True)
+        except Exception as e:
+            problems.append(
+                f"EMBEDDER_KIND=dense 인데 밀집임베딩 모델 로드 불가({type(e).__name__}) — "
+                "pip install -r requirements-ml.txt 후 "
+                "python scripts/download_embedding_model.py 로 모델을 받아둘 것"
+            )
+    if not (0.0 <= config.DENSE_SIGNAL_FLOOR < 1.0):
+        problems.append(f"DENSE_SIGNAL_FLOOR({config.DENSE_SIGNAL_FLOOR})는 [0,1) 범위여야 한다")
     return problems
 
 
@@ -637,6 +655,15 @@ def main() -> int:
     print("=" * 60)
     print(f"배포 전 점검 (preflight, role={args.role}) — 데이터·설정·스모크·게이트 자가 테스트")
     print("=" * 60)
+    # auto 는 환경에 따라 dense/tfidf 로 갈리므로 '실제로 무엇이 잡혔는지'를 명시한다
+    # (폴백이 조용히 지나가면 dense 라고 믿은 배포가 tfidf 로 돌 수 있다).
+    try:
+        from .rag.embedder import get_embedder
+
+        resolved = type(get_embedder(config.EMBEDDER_KIND)).__name__
+    except Exception as e:
+        resolved = f"로드 실패({type(e).__name__})"
+    print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved}")
     report = run_preflight(role=args.role)
     n_problems = 0
     for group, problems in report.items():

@@ -57,6 +57,34 @@ def test_no_signal_query_returns_empty(pipeline):
     assert r.retrieve("품목허가 심사 기간", top_k=8, rerank_n=3)
 
 
+def test_dense_no_signal_floor_contract():
+    """무신호 계약 v13: 밀집 임베더는 무관 질의에도 코사인 0 이 안 나오므로
+    no_signal_floor 속성으로 자기 바닥값을 선언한다 — floor 이하 = 벡터 무신호."""
+    from src.rag.chunker import Chunk
+    from src.rag.embedder import SentenceTransformerEmbedder
+    from src.rag.retriever import HybridRetriever
+    from src.rag.vectorstore import InMemoryVectorStore
+    from tests.test_embedder import _StubSTModel
+
+    chunks = [
+        Chunk(chunk_id="A-1", doc_id="A", source="a.md", title="허가",
+              section="1. 절차", text="품목허가 심사 기간", effective_date="2024-01-01"),
+        Chunk(chunk_id="B-1", doc_id="B", source="b.md", title="보고",
+              section="1. 기한", text="이상사례 보고 기한", effective_date="2024-01-01"),
+    ]
+    emb = SentenceTransformerEmbedder(model=_StubSTModel())
+    r = HybridRetriever(InMemoryVectorStore(emb))
+    r.index(chunks)
+    # 기호-only 질의: 토큰이 없으면 임베딩 호출 전에 무신호로 잘린다
+    assert r.retrieve("!!! ???", top_k=8, rerank_n=3) == []
+    # BM25 0(코퍼스 OOV) + 스텁 코사인 > 0: floor 0.0 이면 벡터 신호로 결과 반환
+    emb.no_signal_floor = 0.0
+    assert r.retrieve("zxqv wxyj", top_k=8, rerank_n=3)
+    # floor 1.0(코사인 상한) 이면 같은 질의가 무신호 → 빈 결과
+    emb.no_signal_floor = 1.0
+    assert r.retrieve("zxqv wxyj", top_k=8, rerank_n=3) == []
+
+
 def test_rerank_fixes_hard_negative(pipeline):
     """어휘가 겹치는 하드네거티브(GMP 실태조사 REG-011)를 물리치고
     ALCOA 데이터 완전성(REG-003)을 최상위로 올려야 한다."""

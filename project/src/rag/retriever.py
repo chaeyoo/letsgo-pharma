@@ -1,7 +1,7 @@
 """하이브리드 리트리버 + 리랭커 (RAG '최적화'의 핵심).
 
 2단계 검색으로 정밀도를 끌어올린다.
-  1단계 (많이 회수):  하이브리드 검색 = 벡터(TF-IDF 코사인) + 키워드(BM25)
+  1단계 (많이 회수):  하이브리드 검색 = 벡터(밀집임베딩 코사인, TF-IDF 폴백) + 키워드(BM25)
                      → 의미 유사(동의어)와 정확 용어(고유명사/코드) 모두 커버.
   2단계 (정밀 재정렬): 리랭커가 질의-청크 관련도를 다시 점수화해 상위 N개만 남김.
                      → Bi-Encoder(빠름) 로 넓게, Cross-Encoder 감각(정밀) 로 좁게.
@@ -234,20 +234,30 @@ class HybridRetriever:
     def _hybrid(
         self, query: str, top_k: int, as_of: str = "", include_superseded: bool = False
     ) -> list[Scored]:
+        # 빈/기호-only 질의는 provider 무관 무신호 — 임베딩 호출 전에 자른다
+        # (밀집 임베더는 빈 질의도 벡터를 만들어 무관 문서에 코사인 점수를 준다).
+        if not tokenize(query):
+            return []
         qv = self.store.embedder.embed(query)
         bm_scores_all = self.bm25.scores(query)
         idxs = self._candidate_indices(as_of, include_superseded)
         # 정규화는 '후보군 안에서' 수행해야 스케일이 왜곡되지 않는다.
         vec_scores = [cosine(qv, self.store.vectors[i]) for i in idxs]
         bm_scores = [bm_scores_all[i] for i in idxs]
-        # 무신호 계약(v9): 전 후보의 벡터·BM25 '원점수'가 모두 0이면 빈 결과.
+        # 무신호 계약(v9): 전 후보의 벡터·BM25 '원점수'가 모두 무신호면 빈 결과.
         # 안정 정렬은 전부 0점인 후보를 코퍼스 첫 문서 순서 그대로 내보내
         # 빈 질의·완전 무관 질의가 임의 문서를 score 0.0 의 '검색 결과'로 달고
         # 나가는 가짜 순위가 됐다(에이전트는 SCORE_FLOOR 로 회피하지만, 직접
         # 호출자·eval 은 그 순위를 그대로 소비한다). 관련도 신호가 전혀 없으면
         # 결과가 없다고 답하는 것이 맞다 — 판정은 정규화 전 원점수 기준이다
         # (_minmax 는 '전원 동점'을 전원 0으로 만들어 유신호와 무신호를 구분 못 한다).
-        if max(vec_scores, default=0.0) <= 0.0 and max(bm_scores, default=0.0) <= 0.0:
+        # v13: '무신호' 판정을 provider 별 바닥값으로 일반화 — 희소(TF-IDF/해싱)는
+        # 겹치는 단어가 없으면 코사인이 정확히 0이라 바닥값 0.0 그대로지만, 밀집
+        # 임베딩은 무관 질의에도 0.3~0.6대 코사인이 나와 '0 이하 = 무신호'가 성립
+        # 하지 않는다. 밀집 임베더는 no_signal_floor 속성(config.DENSE_SIGNAL_FLOOR,
+        # eval 보정)으로 자기 바닥값을 선언하고, 속성이 없는 희소 임베더는 0.0.
+        vec_floor = getattr(self.store.embedder, "no_signal_floor", 0.0)
+        if max(vec_scores, default=0.0) <= vec_floor and max(bm_scores, default=0.0) <= 0.0:
             return []
         vn, bn = _minmax(vec_scores), _minmax(bm_scores)
         combined = [

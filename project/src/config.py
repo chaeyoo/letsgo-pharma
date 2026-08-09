@@ -66,7 +66,11 @@ CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "500"))       # 청크 크기(문�
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "80"))  # 겹침(경계 손실 방지)
 RETRIEVE_TOP_K = int(os.environ.get("RETRIEVE_TOP_K", "8"))  # 1차 회수 개수
 RERANK_TOP_N = int(os.environ.get("RERANK_TOP_N", "3"))     # 리랭킹 후 최종 개수
-HYBRID_ALPHA = float(os.environ.get("HYBRID_ALPHA", "0.5"))  # 벡터(TF-IDF) vs 키워드(BM25) 가중
+# 벡터(임베딩) vs 키워드(BM25) 가중. 0.4 근거(dense 전환 후 재스윕, eval/sweep.py):
+# TF-IDF 시절엔 0.3~0.7 전 구간 둔감해 중립값 0.5 였으나, e5 밀집임베딩은 0.5 에서
+# 의미 인접 이웃 문서 1건이 역전(Hit@1 0.969)하고 0.3~0.4 에서 1.000 — 벡터 신호가
+# 강해진 만큼 가중을 살짝 낮춘 0.4 채택. tfidf 폴백은 이 값에도 둔감(재실측 확인).
+HYBRID_ALPHA = float(os.environ.get("HYBRID_ALPHA", "0.4"))
 RERANK_WEIGHT = float(os.environ.get("RERANK_WEIGHT", "0.9"))  # 리랭커 신호 vs 1차점수 prior 결합
 RERANK_IDF_POWER = float(os.environ.get("RERANK_IDF_POWER", "0.5"))  # 리랭커 토큰 가중 idf^p (0=균등)
 # 섹션 타입 prior (리랭커 v3): 질의 의도로 게이트되는 구조 신호.
@@ -76,7 +80,17 @@ RERANK_IDF_POWER = float(os.environ.get("RERANK_IDF_POWER", "0.5"))  # 리랭커
 # preamble 은 0.04~0.07 유효 밴드의 중앙).
 RERANK_CONTRAST_PENALTY = float(os.environ.get("RERANK_CONTRAST_PENALTY", "0.3"))
 RERANK_PREAMBLE_PENALTY = float(os.environ.get("RERANK_PREAMBLE_PENALTY", "0.055"))
-EMBEDDER_KIND = os.environ.get("EMBEDDER_KIND", "tfidf")     # tfidf | hashing | voyage
+# auto(기본) = 밀집임베딩(sentence-transformers) 시도 → 미설치/모델 미캐시면 tfidf 폴백.
+# dense 는 명시 요구라 폴백 없이 실패한다(명시 설정은 시끄럽게 실패 — voyage 와 동일 원칙).
+EMBEDDER_KIND = os.environ.get("EMBEDDER_KIND", "auto")      # auto | dense | tfidf | hashing | voyage
+EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
+# dense 무신호 바닥값 — 밀집 코사인은 무관 질의에도 0 이 안 나오므로, 이 값 이하를
+# '벡터 신호 없음'으로 판정한다(무신호 계약 일반화, retriever._hybrid 참고).
+# 0.835 근거(e5-small, 후보군 내 max-cosine 실측): 개발셋 실질의 32건 min=0.846,
+# 무관 질의 10건(gibberish·타 도메인 한국어) max=0.825 — 갭 +0.021 의 중앙값.
+# 갭이 좁지만 무신호 판정은 'BM25 도 0'일 때만 발동하는 2중 조건이라(어휘가 한
+# 토큰이라도 겹치면 BM25 가 구제) 실질의 오차단 위험은 낮다. 모델 교체 시 재보정.
+DENSE_SIGNAL_FLOOR = float(os.environ.get("DENSE_SIGNAL_FLOOR", "0.835"))
 QUERY_EXPANSION = os.environ.get("QUERY_EXPANSION", "1") not in ("0", "false", "off")
 # 도메인 동의어 질의 확장(부작용→이상사례 등). 1단계 회수에만 적용.
 

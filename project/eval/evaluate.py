@@ -132,6 +132,8 @@ def main() -> None:
 
     # 인덱스는 1회만 구축해 세 모드가 공유(공정 비교 + 빠른 실행)
     pipe = RagPipeline().build()
+    # auto 는 환경 따라 dense/tfidf 로 갈리므로 이 수치가 '무엇의 수치'인지 명시
+    print(f"임베더: EMBEDDER_KIND={pipe.embedder_kind} → {type(pipe.retriever.store.embedder).__name__}")
     cols = [
         ("① 벡터만", "vector"),
         ("② 하이브리드", "hybrid"),
@@ -149,8 +151,10 @@ def main() -> None:
     print("-" * len(header))
     print("해석:")
     print(" - HardNegHit@1: 어휘가 겹치는 유사문서(하드네거티브)가 섞인 문항에서의 정확도.")
-    print("   벡터 단독은 어휘 유사도에 끌려 오답 문서를 고르기 쉽고, 하이브리드(+BM25)와")
-    print("   리랭킹이 정답 문서를 1순위로 되돌린다 → 이 컬럼이 'RAG 최적화'의 핵심 근거.")
+    print("   어휘 기반 벡터(TF-IDF) 단독은 어휘 유사도에 끌려 오답 문서를 골랐지만(0.786),")
+    print("   밀집임베딩은 벡터 단독으로도 의미를 구분한다(1.0). ② 하이브리드 구간의 일시")
+    print("   하락은 작은 코퍼스에서 BM25 가 더하는 노이즈로, 리랭킹·질의확장이 회복시킨다")
+    print("   — BM25 는 고유명사·코드(DMF, ALCOA) 정확 매칭 보험으로 유지한다.")
     print(" - mean_ms: 질의당 평균 검색 지연. 리랭킹은 정밀도를 얻는 대신 지연이 늘어난다")
     print("   (정밀도↔속도 트레이드오프). 폐지본(REG-013)은 버전 필터로 기본 제외된다.")
     print(" - ④ 질의확장: 도메인 동의어 사전('부작용'→'이상사례', '심각'→'중대한')으로")
@@ -195,14 +199,20 @@ def main() -> None:
     prov_header = f"{'provider':<16}" + "".join(f"{k:>14}" for k in ["Hit@1", "MRR", "ContextRecall"])
     print(prov_header)
     print("-" * len(prov_header))
-    for kind in ["tfidf", "hashing"]:
-        p = RagPipeline(embedder_kind=kind).build()
+    for kind in ["tfidf", "hashing", "dense"]:
+        try:
+            p = RagPipeline(embedder_kind=kind).build()
+        except Exception as e:
+            # dense 는 ml 미설치/모델 미캐시 환경에서 불가 — 비교표에서 정직하게 표기
+            print(f"{kind:<16}{'사용 불가(' + type(e).__name__ + ') — 건너뜀':>42}")
+            continue
         r = evaluate("rerank", top_k, rerank_n, pipe=p)
         row = f"{kind:<16}" + "".join(f"{r[k]:>14}" for k in ["Hit@1", "MRR", "ContextRecall"])
         print(row)
     print("-" * len(prov_header))
     print("해석: EmbeddingProvider 인터페이스로 임베더를 교체해도 파이프라인은 무수정 동작한다.")
-    print("      실무에선 여기에 상용 임베딩(VoyageEmbedder, VOYAGE_API_KEY)을 끼운다.")
+    print("      dense(밀집임베딩, sentence-transformers)가 기본 provider 이고 어휘 기반")
+    print("      tfidf/hashing 은 경량 폴백 — 실무에선 상용 임베딩(Voyage 등)도 같은 자리에 끼운다.")
 
 
 if __name__ == "__main__":
