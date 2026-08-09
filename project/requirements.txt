@@ -5,7 +5,7 @@ fastapi==0.139.0
 uvicorn==0.50.2
 fastmcp==3.4.3
 httpx==0.28.1        # API → MCP 서버 헬스체크 ping (fastmcp 전이 의존성이지만 직접 사용이라 명시 고정)
-anthropic==0.116.0   # 선택: ANTHROPIC_API_KEY 설정 시 LLM 모드 활성화
+anthropic==0.121.0   # 선택: ANTHROPIC_API_KEY 설정 시 LLM 모드 활성화 (langchain-anthropic 이 >=0.120 요구)
 pydantic==2.13.4
 pydantic-ai-slim[anthropic,mcp]==2.13.0   # 선택: AGENT_BACKEND=pydantic_ai 백엔드
 langgraph==1.2.10        # 선택: AGENT_BACKEND=langgraph 백엔드 (상태 그래프 tool-use 루프)
