@@ -230,6 +230,19 @@ def check_config() -> list[str]:
             )
     if not (0.0 <= config.DENSE_SIGNAL_FLOOR < 1.0):
         problems.append(f"DENSE_SIGNAL_FLOOR({config.DENSE_SIGNAL_FLOOR})는 [0,1) 범위여야 한다")
+    if config.AGENT_BACKEND not in ("direct", "pydantic_ai", "langgraph"):
+        problems.append(
+            f"AGENT_BACKEND('{config.AGENT_BACKEND}')는 direct|pydantic_ai|langgraph 중 하나여야 한다"
+        )
+    if config.AGENT_BACKEND == "langgraph":
+        # 명시 설정의 전제조건 점검(voyage 키·dense 모델 검사와 같은 계열) —
+        # LLM 모드 첫 요청에서 ImportError 로 죽는 대신 기동 전에 잡는다.
+        try:
+            import langgraph  # noqa: F401
+        except ImportError:
+            problems.append(
+                "AGENT_BACKEND=langgraph 인데 langgraph 미설치 — pip install -r requirements.txt 재실행"
+            )
     return problems
 
 

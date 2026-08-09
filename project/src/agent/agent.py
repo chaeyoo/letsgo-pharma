@@ -342,6 +342,9 @@ class RaAgent:
                     "chat_llm_pydantic() 호출 — API 키가 있고 AGENT_BACKEND=pydantic_ai 이므로 "
                     "PydanticAI 백엔드가 tool-use 루프를 수행한다"
                     if config.AGENT_BACKEND == "pydantic_ai"
+                    else "chat_llm_langgraph() 호출 — API 키가 있고 AGENT_BACKEND=langgraph 이므로 "
+                    "LangGraph 상태 그래프가 tool-use 루프를 수행한다"
+                    if config.AGENT_BACKEND == "langgraph"
                     else "_chat_llm() 호출 — API 키가 있으므로 Claude 가 스스로 도구를 선택한다"
                 )
                 if config.LLM_AVAILABLE
@@ -357,6 +360,12 @@ class RaAgent:
                     from .pydantic_agent import chat_llm_pydantic
 
                     result = await chat_llm_pydantic(message, history, trace)
+                elif config.AGENT_BACKEND == "langgraph":
+                    # 세 번째 병렬 백엔드: 같은 계약을 LangGraph 상태 그래프
+                    # (agent⇄ToolNode)로 수행. 지연 import 는 위와 같은 이유.
+                    from .langgraph_agent import chat_llm_langgraph
+
+                    result = await chat_llm_langgraph(message, history, trace)
                 else:
                     result = await self._chat_llm(message, history, trace)
             else:

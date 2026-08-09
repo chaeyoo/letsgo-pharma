@@ -51,7 +51,9 @@ LLM_AVAILABLE = bool(ANTHROPIC_API_KEY)
 # 실측). 잘림은 조용히 내보내지 않고 본문에 표시한다(agent 참고).
 LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "4096"))
 # LLM 모드의 에이전트 루프 구현 선택 — 'direct'(기본: anthropic SDK 직접 구현 루프)
-# | 'pydantic_ai'(PydanticAI 프레임워크 백엔드). 오프라인 모드는 백엔드 무관.
+# | 'pydantic_ai'(PydanticAI 프레임워크 백엔드) | 'langgraph'(LangGraph 상태 그래프
+# 백엔드). 세 백엔드는 같은 계약(_finalize 게이트·MCP 도구·스텝 상한)을 지킨다.
+# 오프라인 모드는 백엔드 무관.
 AGENT_BACKEND = os.environ.get("AGENT_BACKEND", "direct").strip().lower()
 
 # 인터넷 검색(search_web) — 사용자가 '명시적으로' 요청했을 때만 에이전트에 노출되는
@@ -98,6 +100,6 @@ QUERY_EXPANSION = os.environ.get("QUERY_EXPANSION", "1") not in ("0", "false", "
 def mode_banner() -> str:
     """현재 실행 모드를 한 줄로 반환(로그/헬스체크용)."""
     if LLM_AVAILABLE:
-        backend = " · backend=pydantic_ai" if AGENT_BACKEND == "pydantic_ai" else ""
+        backend = f" · backend={AGENT_BACKEND}" if AGENT_BACKEND != "direct" else ""
         return f"[LLM 모드] Enterprise LLM API 사용 · model={LLM_MODEL}{backend}"
     return "[오프라인 모드] API 키 없음 → 검색 근거 기반 추출형 답변으로 폴백"

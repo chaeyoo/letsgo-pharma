@@ -4,10 +4,13 @@
 
 > **사용자가 보는 결과는 하나도 달라지지 않았고, 그 결과를 만드는 코드가 짧고 안전해졌다.**
 
-RA·PV 어시스턴트의 LLM 모드에는 같은 일을 하는 두 개의 구현이 있다:
+RA·PV 어시스턴트의 LLM 모드에는 같은 일을 하는 세 개의 구현이 있다:
 
 - **`direct` (기본값)** — anthropic SDK 로 tool-use 루프를 **바닥부터 직접 구현** (`src/agent/agent.py` `_chat_llm()`, 약 230줄)
 - **`pydantic_ai`** — 같은 루프를 **PydanticAI 프레임워크에 위임** (`src/agent/pydantic_agent.py`, 핵심 로직 약 60줄)
+- **`langgraph`** — 같은 루프를 **LangGraph 상태 그래프**(agent⇄ToolNode 순환)로 명시적으로
+  그린 세 번째 백엔드 (`src/agent/langgraph_agent.py`) — 이 문서의 비교 논리(프레임워크가
+  해주는 일 vs 엔지니어 몫)가 그래프 기반 프레임워크에서도 성립함을 보인다
 
 어느 쪽으로 실행해도 답변·출처 카드·검증 배지·PII 마스킹은 동일하다.
 "달라진 게 없어 보이는 것"이 정확히 의도다 — 백엔드 교체는 **루프 구현의 교체**이지,
@@ -64,7 +67,8 @@ PydanticAI 적용으로 **프레임워크 활용**을 증명하며, 두 구현�
 ```bash
 # .env 또는 셸에서 (LLM 모드 전용 — ANTHROPIC_API_KEY 필요)
 AGENT_BACKEND=pydantic_ai   # PydanticAI 백엔드
-AGENT_BACKEND=direct           # (또는 미설정) 직접 구현 루프
+AGENT_BACKEND=langgraph     # LangGraph 상태 그래프 백엔드
+AGENT_BACKEND=direct        # (또는 미설정) 직접 구현 루프
 ```
 
 | ANTHROPIC_API_KEY | AGENT_BACKEND | 실행 경로 |
@@ -72,6 +76,7 @@ AGENT_BACKEND=direct           # (또는 미설정) 직접 구현 루프
 | 없음 | (무관) | 오프라인 규칙 라우터 — 백엔드 선택은 의미 없음 |
 | 있음 | 없음 또는 `direct` | 직접 구현 루프 (`_chat_llm`) |
 | 있음 | `pydantic_ai` | PydanticAI (`chat_llm_pydantic`) |
+| 있음 | `langgraph` | LangGraph (`chat_llm_langgraph`) |
 
 **적용 확인 3가지:**
 1. 기동 배너(및 `/health`의 `banner`)에 `· backend=pydantic_ai` 표기
@@ -98,5 +103,6 @@ AGENT_BACKEND=direct           # (또는 미설정) 직접 구현 루프
 | `src/agent/agent.py` (`RaAgent.chat`) | 공통 입구(PII 마스킹)·백엔드 분기·공유 헬퍼 정의처 |
 | `src/agent/agent.py` (`_chat_llm`) | direct 백엔드 — 직접 구현 루프 |
 | `src/agent/pydantic_agent.py` | pydantic_ai 백엔드 — 증거 바구니(`PaDeps`)·북키핑 훅(`_process_tool_call`)·진입점 |
-| `tests/test_agent_llm.py` · `tests/test_agent_pydantic_ai.py` | 두 백엔드의 동일 계약 테스트 |
-| `requirements.txt` | `pydantic-ai-slim[anthropic,mcp]==2.13.0` (선택 의존성) |
+| `src/agent/langgraph_agent.py` | langgraph 백엔드 — 같은 증거 바구니(`LgDeps`)·StructuredTool 래퍼·StateGraph(agent⇄ToolNode) |
+| `tests/test_agent_llm.py` · `tests/test_agent_pydantic_ai.py` · `tests/test_agent_langgraph.py` | 세 백엔드의 동일 계약 테스트 |
+| `requirements.txt` | `pydantic-ai-slim[anthropic,mcp]==2.13.0` · `langgraph==1.2.10` · `langchain-anthropic==1.5.4` (선택 의존성) |

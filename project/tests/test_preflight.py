@@ -295,6 +295,14 @@ def test_config_check_embedder_kind_values(monkeypatch):
     assert not any("EMBEDDER_KIND" in p for p in preflight.check_config())
 
 
+def test_config_check_agent_backend_values(monkeypatch):
+    """AGENT_BACKEND 유효값 검증 — direct|pydantic_ai|langgraph 외는 기동 전에 잡는다."""
+    monkeypatch.setattr(config, "AGENT_BACKEND", "nope")
+    assert any("AGENT_BACKEND" in p for p in preflight.check_config())
+    monkeypatch.setattr(config, "AGENT_BACKEND", "langgraph")  # 설치돼 있으므로 통과
+    assert not any("AGENT_BACKEND" in p for p in preflight.check_config())
+
+
 def test_config_check_dense_requires_loadable_model(monkeypatch):
     """dense 명시(폴백 없음)인데 모델 로드 불가면 기동 전에 실패해야 한다 —
     기동 후 수백 MB 다운로드 블록/런타임 예외보다 preflight 실패가 낫다."""

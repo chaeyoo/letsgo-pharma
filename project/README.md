@@ -92,13 +92,14 @@ flowchart TB
 | **MCP / FastMCP** | Tools 7 + Resource + Prompt(3대 primitive), 독립 HTTP 서버(운영)/stdio(Claude Desktop) | `src/mcp_server/server.py` |
 | **Agentic / Function Calling** | tool-use 루프, 도구 에러 자가복구, 오프라인 규칙 라우터 폴백 | `src/agent/agent.py` |
 | **PydanticAI** | 동일 계약(검증 게이트·MCP 도구·grounded 판정)의 병렬 백엔드 — `AGENT_BACKEND=pydantic_ai` 로 직접 구현 루프와 교체·비교 가능, MCPToolset 이 같은 MCP_SERVER_URL(HTTP)에 직결 | `src/agent/pydantic_agent.py` |
+| **LangChain / LangGraph** | 동일 계약의 세 번째 병렬 백엔드 — `AGENT_BACKEND=langgraph`, 명시적 StateGraph(agent⇄ToolNode 순환 + recursion_limit)로 tool-use 루프 구현, MCP 도구를 LangChain StructuredTool 로 무변환 래핑 | `src/agent/langgraph_agent.py` |
 | **FastAPI · 프론트엔드** | `/chat`·`/health` + 단일 페이지 챗 UI(출처·트레이스·검증 배지) | `src/api/`, `web/` |
 | **신뢰성(환각 억제)** | groundedness·abstention(AND 문턱)·출처/버전 추적·`as_of` 시점 조회 | `src/agent/`, `src/rag/retriever.py` |
 | **답변 사후 검증** | 전 응답 통과 런타임 게이트 + 게이트 자체의 메타모픽 평가(pytest 가드로 CI 강제) | `src/verify/`, `eval/verify_eval.py` |
 | **배포 전 점검(FDE Day-0)** | 설정·코퍼스·업무데이터·스모크+안전장치 자가 테스트 — 실패 시 기동 차단 | `src/preflight.py` |
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
-| **테스트/CI** | pytest 343케이스(불변식/fuzz 포함) + Actions(preflight+평가 4종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
+| **테스트/CI** | pytest 353케이스(불변식/fuzz 포함) + Actions(preflight+평가 4종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
 
 ## 5. 실행 방법
 
@@ -112,7 +113,7 @@ export ANTHROPIC_API_KEY=sk-ant-...   # (선택) LLM 모드 — 없어도 오프
 .venv/bin/python scripts/download_embedding_model.py   # multilingual-e5-small 1회 다운로드
 ```
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(343케이스) ·
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(353케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval`(평가 5종, 95% CI 병기).
 CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다. MCP 단독 실행·Claude Desktop 연결은
 [사용자 가이드](description/가이드.md) 참고.
