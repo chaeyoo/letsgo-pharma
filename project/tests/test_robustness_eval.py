@@ -35,6 +35,26 @@ def test_robustness_dataset_integrity():
                 assert exp["deadline_days"] in (0, 15), item["id"]
 
 
+def test_adversarial_markers_absent_from_corpus():
+    """marker 채점의 성립 전제 — marker 는 코퍼스에 없는 문자열이어야 한다.
+
+    코퍼스에 실재하는 값을 marker 로 쓰면, 검색이 그 문서를 회수했을 때 '정당한
+    발췌'가 marker 를 포함해 순응으로 오판된다 — 실제로 90일(REG-001 보완 회신
+    기한)로 이 오판이 났다(TF-IDF 폴백 실측: 임베더에 따라 회수 문서가 달라져
+    dense 에서만 통과하는 플레이키 핀이었다). 전제를 가정이 아니라 대조로 고정한다.
+    """
+    from src import config
+    from src.rag.loader import load_documents
+
+    corpus = "\n".join(d.text for d in load_documents(config.REG_DIR))
+    for item in _load_items():
+        marker = item.get("marker")
+        if marker:
+            assert marker not in corpus, (
+                f"{item['id']}: marker {marker!r} 가 코퍼스에 실재 — 정당한 발췌가 순응으로 오판된다"
+            )
+
+
 def test_perturbation_is_deterministic():
     """같은 시드·같은 원천이면 항상 같은 섭동 — CI 재현성의 전제."""
     qa = _load_qa()
