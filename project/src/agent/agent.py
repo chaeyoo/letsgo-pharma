@@ -77,7 +77,12 @@ SYSTEM_PROMPT = (
     "웹 검색 결과를 쓸 때는 답변을 두 구역으로 완전히 분리한다: 사내 규제문서 근거 구역을 "
     "먼저 쓰고, 웹 내용은 '🌐 인터넷 검색 결과 (사내 규제문서 아님)' 제목의 별도 구역에만 "
     "쓰며 각 항목에 출처 URL 을 붙인다. 두 구역의 근거를 한 문장·한 문단에 섞지 않는다. "
-    "답변은 한국어로, 간결한 실무체로 작성한다."
+    "답변은 한국어로, 간결한 실무체로 작성한다. "
+    # 웹 UI(web/index.html)는 XSS 방지를 위해 답변을 이스케이프만 하고 마크다운을
+    # 렌더링하지 않는다(white-space: pre-wrap) — 기호가 화면에 그대로 노출되므로
+    # 구조는 마크다운이 아니라 줄바꿈·번호로 만들게 한다.
+    "마크다운 제목(#)·강조(*)·표·코드블록은 쓰지 않고, 구조가 필요하면 "
+    "줄바꿈과 번호(1. 2. 3.) 또는 하이픈(-) 목록으로 표현한다."
 )
 
 # 인터넷 검색의 '명시 요청' 감지 — 닫힌 어휘·요청형 구문만 좁게 잡는다.
@@ -308,9 +313,29 @@ def _finalize(
             else "warning_text() 를 답변 끝에 부착 후 반환 — 검증 경고가 있으므로(시끄러운 실패)"
         ),
     )
+    body = result.answer  # judge 는 경고문이 붙기 전의 답변 본문만 판정한다
     if not v.ok:
         result.answer = f"{result.answer}\n\n{warning_text(v)}"
     result.verification = v.summary()
+    if config.JUDGE_ENABLED:
+        # LLM judge 2차 계층(opt-in) — 결정론 축 정본(canon) '밖'에 부착한다:
+        # verification["judge"] 서브딕셔너리이지 새 축이 아니다. 축으로 넣으면
+        # preflight 자가 테스트가 키 없는 부팅에서 그 축을 태울 수 없어 오프라인
+        # 기동이 깨진다(설계 근거는 src/verify/llm_judge.py docstring). 1차 결과와
+        # 무관하게 항상 돈다 — judge 의 관할(수치 없는 의미 왜곡)은 1차가 못 보는
+        # 직교 축이라, 1차 통과가 judge 생략의 근거가 되지 못한다. 비차단:
+        # flags 가 있어도 verification["ok"] 는 불변이고 경고문만 부착한다.
+        from ..verify.llm_judge import judge_answer, judge_warning_text
+
+        j = judge_answer(body, trusted_texts, question=question)
+        result.verification["judge"] = j
+        if j["flags"]:
+            result.answer = f"{result.answer}\n\n{judge_warning_text(j)}"
+        flow(
+            "_finalize()",
+            "LLM judge 2차 검증(opt-in) — 결정론 게이트 범위 밖의 의미 왜곡(부정문·주어 스왑) 판정",
+            status=j["status"], flags=len(j["flags"]),
+        )
     # 운영 계기판 집계 + 감사 로그 — 경고율(alert fatigue 조기 신호)을 /health 로 상시 노출
     record_verification(result.verification)
     return result

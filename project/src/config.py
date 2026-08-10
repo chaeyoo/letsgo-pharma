@@ -56,6 +56,17 @@ LLM_MAX_TOKENS = int(os.environ.get("LLM_MAX_TOKENS", "4096"))
 # 오프라인 모드는 백엔드 무관.
 AGENT_BACKEND = os.environ.get("AGENT_BACKEND", "direct").strip().lower()
 
+# LLM judge 2차 검증 (opt-in) — 결정론 게이트(src/verify)가 스스로 경계로 선언한
+# '수치 없는 의미 왜곡'(부정문 뒤집기·주어 바꿔치기)을 보는 확률적 2차 계층.
+# 기본 off 인 이유: 전 응답마다 도는 유료 API 콜 + 확률적 판정이므로, 켜는 것은
+# 비용·비결정론을 받아들이는 명시적 결정이어야 한다. 켰는데 API 키가 없으면
+# preflight 가 기동을 거부한다(fail-closed — MCP_REQUIRE_AUTH 와 같은 계열).
+JUDGE_ENABLED = os.environ.get("LLM_JUDGE", "").strip() in ("1", "true", "on")
+# 판정 모델은 생성 모델(LLM_MODEL)과 분리한다 — (1) 전 응답 실행이라 저비용
+# 모델이 기본값이어야 하고, (2) 만든 모델과 비판하는 모델을 나누면 self-critique
+# 순환(같은 편향으로 같은 오류를 통과시키는 것)이 부분 완화된다.
+JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "claude-haiku-4-5")
+
 # 인터넷 검색(search_web) — 사용자가 '명시적으로' 요청했을 때만 에이전트에 노출되는
 # 보조 도구다(명시와 분리 원칙 — 사내 문서에서 못 찾은 질문을 조용히 웹으로 대신
 # 답하지 않는다). 사내망 차단 환경·외부 송신 금지 정책에서는 0 으로 끈다 —

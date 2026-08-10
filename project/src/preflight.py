@@ -193,6 +193,14 @@ def check_config() -> list[str]:
             "MCP_REQUIRE_AUTH=1 인데 MCP_AUTH_TOKEN 이 비어 있다 — 공개 MCP 서버를"
             " 무인증으로 열 수 없다(토큰을 설정하거나 공개 가드를 끌 것)"
         )
+    if config.JUDGE_ENABLED and not config.ANTHROPIC_API_KEY:
+        # LLM judge 를 켰는데 키가 없으면 모든 응답의 judge 가 unavailable 로
+        # 도는 '고장난 안전장치' 배포가 된다 — 조용히 내려가는 대신 기동을
+        # 거부한다(fail-closed, MCP_REQUIRE_AUTH 가드와 같은 계열).
+        problems.append(
+            "LLM_JUDGE=1 인데 ANTHROPIC_API_KEY 가 없다 — judge 2차 검증은 API 키가"
+            " 필요하다(키를 설정하거나 LLM_JUDGE 를 끌 것)"
+        )
     if not (0 < config.CHUNK_OVERLAP < config.CHUNK_SIZE):
         problems.append(
             f"CHUNK_OVERLAP({config.CHUNK_OVERLAP})은 0보다 크고 CHUNK_SIZE({config.CHUNK_SIZE})보다 작아야 한다"
@@ -635,6 +643,34 @@ def check_mcp_reachable(
     ]
 
 
+def check_judge() -> list[str]:
+    """LLM judge 자가 테스트 — **JUDGE_ENABLED 일 때만** 실행되는 조건부 그룹.
+
+    게이트 자가 테스트(_GATE_SELF_TESTS)에 합류시키지 않는 이유: 그 테이블은
+    키 없는 부팅에서도 전 축이 돌아야 하는 결정론 계약이고, judge 는 실 API
+    가 필요한 확률 계층이다 — 축 정본 밖에 둔 설계(llm_judge.py)와 대칭으로,
+    자가 테스트도 별도 그룹으로 이원화한다. 검사의 이원화: 배선·파싱 계약
+    (비활성 기본·malformed 흡수·비차단)은 tests/test_judge.py 가 스텁으로
+    핀 고정하고, 여기서는 '살아있는 판정 능력'만 canary 2건(planted 부정문
+    뒤집기 1 + clean 1)으로 확인한다 — 안전장치가 고장난 채 배포되는 것은
+    안전장치가 없는 것보다 나쁘다(게이트·PII 자가 테스트와 같은 원칙).
+    enabled 부팅마다 실 API 2콜이 드는 것은 그 원칙의 수용된 비용이다.
+    """
+    from .verify.llm_judge import judge_answer
+
+    problems: list[str] = []
+    trusted = ["중대한 이상사례는 보고 대상이다. 인지일로부터 15일 이내 신속보고한다."]
+    planted = judge_answer("중대한 이상사례는 보고 대상이 아닙니다.", trusted)
+    if planted["status"] == "unavailable":
+        problems.append(f"judge 호출 불가({planted['reason']}) — 키·모델명을 확인할 것")
+    elif planted["status"] != "flagged":
+        problems.append("judge 가 심은 부정문 뒤집기를 탐지하지 못했다 — 판정 능력 canary 실패")
+    clean = judge_answer("중대한 이상사례는 보고 대상이며 15일 이내 신속보고합니다.", trusted)
+    if clean["status"] == "flagged":
+        problems.append(f"judge 가 정상 답변에 오탐을 냈다({clean['flags']}) — 경고 피로 위험")
+    return problems
+
+
 def run_preflight(role: str = "all") -> dict[str, list[str]]:
     """롤별 그룹을 실행해 {그룹명: 문제 목록} 을 반환한다(빈 목록 = 통과).
 
@@ -650,6 +686,10 @@ def run_preflight(role: str = "all") -> dict[str, list[str]]:
         checks["업무 데이터 스키마"] = check_tasks()
     if role in ("all", "mcp"):
         checks["스모크(canary)"] = smoke_checks()
+    if config.JUDGE_ENABLED and role in ("all", "api"):
+        # judge 는 에이전트(_finalize) 계층에서 돌므로 api 롤의 책임이다.
+        # 비활성(기본)이면 그룹 자체가 없다 — 키 없는 오프라인 부팅 무영향.
+        checks["LLM judge 자가 테스트"] = check_judge()
     if role == "api":
         checks["MCP 연결"] = check_mcp_reachable()
     return checks
