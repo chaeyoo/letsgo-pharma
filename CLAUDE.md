@@ -32,10 +32,12 @@ PV 도메인(`src/pv/` 케이스 처리 워크플로)이 항상 나란히 등장
 - `직접작성/경력기술서_2.md` 의 **AS-IS 아카이브 섹션** — 구버전 보관용이므로 수정하지 않는다
 - 파일명·식별자 (`ra_tasks.json`, `get_ra_deadlines` 등) — 코드 호환성 유지
 
-### 이미지 파일 주의
+### 호스팅 자산 주의
 
-`project/docs/architecture.svg` 를 수정하면 래스터본 **`architecture.png` 도 재렌더링해서 교체**해야 한다
-(README·프로젝트_소개서에 삽입됨). 텍스트 검색으로는 PNG 속 구버전 라벨이 잡히지 않는다.
+`project/description/` 에는 문서가 아니라 **호스팅 자산만** 남아 있다 —
+`dictionary.html`(GET /dictionary) · `blank.html`(GET /blank) 과 그 빌드 입력인
+`dictionary.md` · `build_dictionary_html.py`. `dictionary.md` 를 고치면
+`build_dictionary_html.py` 를 실행해 `dictionary.html` 의 mdsrc 블록을 재주입해야 한다.
 
 ## 검증
 
