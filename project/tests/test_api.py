@@ -33,6 +33,14 @@ def test_app_boots_and_serves_endpoints():
         assert r_dl.status_code == 200
         assert isinstance(r_dl.json(), list)
 
+        # 운영 계기판 — web/dashboard.html 정적 서빙
+        r_dash = client.get("/dashboard")
+        assert r_dash.status_code == 200
+        assert "운영 계기판" in r_dash.text
+        # 계기판이 읽는 대상은 /health 다 — 폴링 대상이 바뀌면 화면이 조용히
+        # 빈 채로 남으므로(표현 계층의 무증상 고장) 계약으로 고정한다.
+        assert "'/health'" in r_dash.text or '"/health"' in r_dash.text
+
         # 용어 사전 플래시카드 — description/dictionary.html 정적 서빙
         r_dict = client.get("/dictionary")
         assert r_dict.status_code == 200

@@ -5,6 +5,7 @@
   GET  /health      → 실행 모드/MCP 서버·인덱스 상태 + 검증 게이트 경고율 계기판
   POST /chat        → 사용자 메시지 → 에이전트 응답(+도구호출·출처)
   GET  /api/deadlines → 대시보드용 마감일 (부가)
+  GET  /dashboard   → 운영 계기판 — /health 를 폴링해 경고율·축별 분해를 그리는 화면
   GET  /dictionary  → 용어 사전 플래시카드 (description/dictionary.html, self-contained)
   GET  /blank       → 예제문100 빈칸 퀴즈 (description/blank.html, self-contained)
 
@@ -150,6 +151,16 @@ async def deadlines() -> JSONResponse:
 @app.get("/", response_class=HTMLResponse)
 async def index() -> HTMLResponse:
     html = (config.WEB_DIR / "index.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard() -> HTMLResponse:
+    # /health 의 JSON 을 사람이 읽는 화면 — 폴링만 하는 정적 단일 파일(외부 의존 없음).
+    # 지표의 정본은 여전히 /health 이고 이 페이지는 표현 계층일 뿐이다:
+    # 새 축이 생겨도 서버가 by_axis 에 실어 보내면 라벨 없이 키 그대로 그려진다
+    # (계기판에서 축이 조용히 빠지는 실패를 만들지 않는다 — observability.py 와 같은 규율).
+    html = (config.WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
     return HTMLResponse(html)
 
 
