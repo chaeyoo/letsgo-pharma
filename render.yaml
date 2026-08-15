@@ -56,6 +56,12 @@ services:
           property: host
       - key: MCP_SERVER_PORT
         value: "8001"
+      # 에이전트 루프 백엔드 — 세 구현(direct·pydantic_ai·langgraph)이 동일 계약이라
+      # 어느 쪽으로도 돌지만, 배포본은 시연 환경과 같은 백엔드로 고정한다
+      # (화면·발화·실물이 어긋나지 않게). langgraph 는 requirements.txt 에 있고,
+      # preflight check_config 가 기동 전에 import 가능 여부를 검증한다.
+      - key: AGENT_BACKEND
+        value: langgraph
       - key: MCP_AUTH_TOKEN     # rapv-mcp 와 같은 값 — 에이전트가 Bearer 로 부착
         sync: false
       # LLM 모드(면접 라이브 시연 등)가 필요하면 Render 대시보드 → Environment 에서
