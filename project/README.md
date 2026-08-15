@@ -92,11 +92,12 @@ flowchart TB
 | **LangChain / LangGraph** | 동일 계약의 세 번째 병렬 백엔드 — `AGENT_BACKEND=langgraph`, 명시적 StateGraph(agent⇄ToolNode 순환 + recursion_limit)로 tool-use 루프 구현, MCP 도구를 LangChain StructuredTool 로 무변환 래핑 | `src/agent/langgraph_agent.py` |
 | **FastAPI · 프론트엔드** | `/chat`·`/health` + 단일 페이지 챗 UI(출처·트레이스·검증 배지) | `src/api/`, `web/` |
 | **신뢰성(환각 억제)** | groundedness·abstention(AND 문턱)·출처/버전 추적·`as_of` 시점 조회 | `src/agent/`, `src/rag/retriever.py` |
-| **답변 사후 검증** | 전 응답 통과 런타임 게이트 + 게이트 자체의 메타모픽 평가(pytest 가드로 CI 강제) | `src/verify/`, `eval/verify_eval.py` |
+| **답변 사후 검증** | 전 응답 통과 런타임 게이트 + 게이트 자체의 메타모픽 평가(pytest 가드로 CI 강제) + opt-in LLM judge 2차 계층(수치 없는 의미 왜곡 — 결정론 경계 밖) | `src/verify/`, `eval/verify_eval.py`, `eval/judge_eval.py` |
+| **에이전트 평가 확장** | 계획 능력(도구 선택·인자, 결정론 라우터 1.0 핀)·입력 견고성(오타 섭동·구어·프롬프트 인젝션)·LLM 기반 평가셋 후보 생성(사람 리뷰 게이트 강제) | `eval/plan_eval.py`, `eval/robustness_eval.py`, `eval/generate_eval_items.py` |
 | **배포 전 점검(FDE Day-0)** | 설정·코퍼스·업무데이터·스모크+안전장치 자가 테스트 — 실패 시 기동 차단 | `src/preflight.py` |
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
-| **테스트/CI** | pytest 353케이스(불변식/fuzz 포함) + Actions(preflight+평가 4종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
+| **테스트/CI** | pytest 381케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
 
 ## 5. 실행 방법
 
@@ -110,9 +111,11 @@ export ANTHROPIC_API_KEY=sk-ant-...   # (선택) LLM 모드 — 없어도 오프
 .venv/bin/python scripts/download_embedding_model.py   # multilingual-e5-small 1회 다운로드
 ```
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(353케이스) ·
-`-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval`(평가 5종, 95% CI 병기).
-CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다.
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(381케이스) ·
+`-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
+(평가 7종, 95% CI 병기). 키 필요 수동 2종: `-m eval.judge_eval`(LLM judge 실측) ·
+`-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트). CI는 매 푸시마다
+preflight+테스트+평가 6종을 실행한다.
 
 ## 6. 핵심 수치 (전부 스크립트 1회 실행으로 재현)
 
@@ -133,6 +136,10 @@ CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다.
 | PV(라벨 22) | 코딩 P / R (확정) · R (확정∪후보) | **1.000** / 0.792 · **0.958** — 갭 = 사전 롱테일(확장 지점 크기) |
 | 검증 게이트 | 변조 탐지 9축 / 오탐 감시 4축 | 모두 **1.000** (n=4~40, 표본 하한은 pytest 가드가 CI 강제) |
 | 운영 실측 | E2EPassRate (오프라인 실응답 전수) | **1.000** [0.912, 1.000] (n=40) |
+| 계획(18문항) | ToolRecall / ToolPrecision / ParamAccuracy | 모두 **1.000** (결정론 라우터 — pytest 핀, 깨지면 라우팅 회귀) |
+| 견고성(섭동 128) | TypoHit@1 — 실측 (Clean 1.000 대비) | **0.969** [0.922, 0.988] (delta +0.031 — 열화를 숨기지 않음, 핀은 하한 0.90) |
+| 견고성(구어 6) | ColloquialOk — 실측 | **0.500** — 갭 = 동의어 사전·회피 문턱의 개선 여지(라벨 하향으로 숨기지 않음) |
+| 견고성(적대 9) | 주입 무순응 / 도구 판정 불변 | 모두 **1.000** (무관용 핀 — 추출형 구조 + 게이트 상시 부착의 회귀 가드) |
 
 - 수치의 상세(모드 4종 비교표·오류 분석 루프 0.867→1.000·검증기 축별 표)는 각 평가 스크립트
   출력에 있다. 소표본 1.000에는 항상 Wilson 95% CI를 병기한다 — '완벽'이 아니라
@@ -143,6 +150,9 @@ CI는 매 푸시마다 preflight+테스트+평가 4종을 실행한다.
   통과한다. 실패는 차단이 아니라 경고 부착(사람의 최종 확정을 빠르게), 케이스 서술 유래 지지는
   `from_case` 라벨로 구분한다. 게이트 자체도 메타모픽 변조(9축)로 측정하고 preflight가 기동 전에
   전 축 자가 테스트를 강제한다 — 구현은 `src/verify/`.
+  결정론이 못 보는 **수치 없는 의미 왜곡**(부정문 뒤집기·주어 바꿔치기)은 opt-in **LLM judge
+  2차 계층**(`LLM_JUDGE=1`, 기본 off·비차단·결정론 축 정본 밖)이 담당하고, 그 판정 능력은
+  `eval/judge_eval.py`(키 필요 실측)와 preflight canary 로, 배선 계약은 pytest 스텁으로 잰다.
 - **PV 워크플로**: 트리아지(중대성=기준 대조는 결정론, 서술→기준 매핑은 과탐 보수+사람 확정) →
   인과성(WHO-UMC 6범주의 5범주 근사, '제안'+되물을 질문) → 코딩(확정/후보/미코딩 3계층, 자동 확정
   무관용) → ICSR 초안(ICH E2D 4요소 검증). 기한 계산은 역일(calendar day) 기준이며 LLM이 아니라
