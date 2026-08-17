@@ -38,6 +38,34 @@
    "relevant_doc_id": "REG-004",
    "relevant_section_hint": "첨부문서 기재 순서",
    "keywords": ["저장상의 주의"]
+  },
+  {
+   "question": "허가사항을 바꾸는 신청은 접수 후 며칠 이내에 처리되나요?",
+   "relevant_doc_id": "REG-002",
+   "relevant_section_hint": "처리기한",
+   "keywords": ["35", "근무일"],
+   "hard_negative": true
+  },
+  {
+   "question": "위해성 등급에 따라 신고·인증·허가 중 어떤 경로를 따르나요?",
+   "relevant_doc_id": "REG-007",
+   "relevant_section_hint": "등급 분류와 규제 경로",
+   "keywords": ["인증", "1등급"],
+   "hard_negative": true
+  },
+  {
+   "question": "중대한 질환 치료제의 심사 순위를 앞당기는 제도가 있나요?",
+   "relevant_doc_id": "REG-009",
+   "relevant_section_hint": "신속심사",
+   "keywords": ["우선심사", "단축"],
+   "hard_negative": true
+  },
+  {
+   "question": "품질부적합이나 회수가 발생하면 제조소 점검이 어떻게 이루어지나요?",
+   "relevant_doc_id": "REG-011",
+   "relevant_section_hint": "조사 유형",
+   "keywords": ["수시", "실태조사"],
+   "hard_negative": true
   }
  ]
 }
