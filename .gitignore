@@ -8,4 +8,5 @@ __pycache__/
 !/README.md
 !/CLAUDE.md
 !/DEPLOY.md
+!/09_다음스텝_VM직접배포.md
 /직접작성/
