@@ -6,23 +6,23 @@
 <title>RAPV-Assistant · 제약 규제업무(RA·PV) AI 어시스턴트</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%23E4002B'/%3E%3Cpath d='M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z' fill='%2343B02A'/%3E%3C/svg%3E" />
 <style>
-  /* GC녹십자 공식 CI 팔레트 (gcbiopharma.com CI) */
+  /* 브랜드 팔레트 — 제약·의료 톤의 딥블루/그린 */
   :root {
-    --gc-blue: #002B49;      /* GC Deep Blue */
-    --gc-mildblue: #0072CE;  /* GC Mild Blue */
-    --gc-green: #007A33;     /* GC Deep Green */
-    --gc-mildgreen: #43B02A; /* GC Mild Green */
-    --gc-bright: #97D700;    /* GC Bright Green */
-    --gc-red: #E4002B;       /* GC Red */
-    --gc-yellow: #FFC845;    /* GC Yellow */
+    --brand-blue: #002B49;      /* Deep Blue */
+    --brand-mildblue: #0072CE;  /* Mild Blue */
+    --brand-green: #007A33;     /* Deep Green */
+    --brand-mildgreen: #43B02A; /* Mild Green */
+    --brand-bright: #97D700;    /* Bright Green */
+    --brand-red: #E4002B;       /* Red */
+    --brand-yellow: #FFC845;    /* Yellow */
     --bg: #f4f7f9; --panel: #ffffff; --panel2: #eef3f6; --line: #dde5ec;
     --text: #1b2a38; --muted: #5b7186;
-    --user: var(--gc-blue); --accent: var(--gc-green); --accent2: var(--gc-mildblue);
+    --user: var(--brand-blue); --accent: var(--brand-green); --accent2: var(--brand-mildblue);
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
     background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
-  header { padding: 21px 30px; background: var(--gc-blue); color: #fff;
+  header { padding: 21px 30px; background: var(--brand-blue); color: #fff;
     display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
   header h1 { font-size: 24px; margin: 0; font-weight: 650; display: flex; align-items: center; gap: 12px; }
   header h1 svg { flex: none; }
@@ -39,8 +39,8 @@
   .info:hover .tip, .info:focus .tip { display: block; }
   .hspace { flex: 1; }
   .badge { font-size: 16.5px; padding: 4.5px 13.5px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
-  .badge.llm { color: #12310a; background: var(--gc-bright); border-color: var(--gc-bright); font-weight: 700; }
-  .badge.offline { color: var(--gc-yellow); border-color: var(--gc-yellow); }
+  .badge.llm { color: #12310a; background: var(--brand-bright); border-color: var(--brand-bright); font-weight: 700; }
+  .badge.offline { color: var(--brand-yellow); border-color: var(--brand-yellow); }
   button.ghost { font-size: 18px; padding: 7.5px 18px; border-radius: 999px; cursor: pointer;
     background: transparent; border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
   button.ghost:hover { border-color: #fff; color: #fff; }
@@ -54,9 +54,9 @@
     box-shadow: 0 1.5px 4.5px rgba(0,43,73,.06); }
   .meta { margin-top: 13.5px; display: flex; gap: 9px; flex-wrap: wrap; }
   .pill { font-size: 16.5px; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-  .pill.ok { color: var(--gc-green); border-color: var(--gc-green); background: #eaf5ee; }
-  .pill.warn { color: var(--gc-red); border-color: var(--gc-red); background: #fdedf0; }
-  .pill.mask { color: #6d5200; border-color: var(--gc-yellow); background: #fff6dd; }
+  .pill.ok { color: var(--brand-green); border-color: var(--brand-green); background: #eaf5ee; }
+  .pill.warn { color: var(--brand-red); border-color: var(--brand-red); background: #fdedf0; }
+  .pill.mask { color: #6d5200; border-color: var(--brand-yellow); background: #fff6dd; }
   .trace { margin-top: 13.5px; font-size: 18px; color: var(--muted); }
   .trace .tool { display: inline-block; background: var(--panel2); border: 1px solid var(--line);
     border-radius: 9px; padding: 3px 12px; margin: 3px 6px 3px 0; }
@@ -67,7 +67,7 @@
   .chip { font-size: 18px; padding: 17px 16.5px; border: 1px solid var(--line); border-radius: 8px;
     background: var(--panel); cursor: pointer; color: var(--text); font-family: inherit; text-align: center; }
   .chip.wide { grid-column: 1 / -1; }
-  .chip:hover { border-color: var(--gc-green); background: #eaf5ee; }
+  .chip:hover { border-color: var(--brand-green); background: #eaf5ee; }
   @media (max-width: 640px) { .chips { grid-template-columns: 1fr; } }
   footer { border-top: 1px solid var(--line); padding: 21px 30px; background: var(--panel); }
   .inputrow { display: flex; gap: 15px; max-width: 1290px; margin: 0 auto; align-items: flex-end; }
@@ -77,14 +77,14 @@
     padding: 13px 21px; border-radius: 15px; border: 1px solid var(--line);
     background: var(--panel2); color: var(--text); font-size: 21px; font-family: inherit;
     resize: none; line-height: 1.5; }
-  button#send { padding: 16.5px 30px; border-radius: 15px; border: none; background: var(--gc-green);
+  button#send { padding: 16.5px 30px; border-radius: 15px; border: none; background: var(--brand-green);
     color: #fff; font-weight: 700; cursor: pointer; font-size: 21px; }
   button#send:hover { background: #00662b; }
   button#send:disabled { opacity: .5; cursor: default; }
-  :focus-visible { outline: 3px solid var(--gc-mildblue); outline-offset: 2px; }
+  :focus-visible { outline: 3px solid var(--brand-mildblue); outline-offset: 2px; }
   .empty { color: var(--muted); text-align: center; margin-top: 60px; margin-bottom: 54px; font-size: 19.5px; line-height: 1.8; }
   .typing { display: inline-flex; gap: 6px; align-items: center; margin-right: 9px; }
-  .typing i { width: 9px; height: 9px; border-radius: 50%; background: var(--gc-green);
+  .typing i { width: 9px; height: 9px; border-radius: 50%; background: var(--brand-green);
     animation: blink 1.2s infinite; }
   .typing i:nth-child(2) { animation-delay: .2s; }
   .typing i:nth-child(3) { animation-delay: .4s; }

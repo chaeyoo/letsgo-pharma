@@ -6,27 +6,27 @@
 <title>RAPV-Assistant · 운영 계기판</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%23E4002B'/%3E%3Cpath d='M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z' fill='%2343B02A'/%3E%3C/svg%3E" />
 <style>
-  /* 챗 UI(index.html)와 동일한 GC녹십자 CI 팔레트 — 같은 서비스로 읽히게 한다. */
+  /* 챗 UI(index.html)와 동일한 브랜드 팔레트 — 같은 서비스로 읽히게 한다. */
   :root {
-    --gc-blue: #002B49; --gc-mildblue: #0072CE; --gc-green: #007A33;
-    --gc-mildgreen: #43B02A; --gc-bright: #97D700; --gc-red: #E4002B; --gc-yellow: #FFC845;
+    --brand-blue: #002B49; --brand-mildblue: #0072CE; --brand-green: #007A33;
+    --brand-mildgreen: #43B02A; --brand-bright: #97D700; --brand-red: #E4002B; --brand-yellow: #FFC845;
     --bg: #f4f7f9; --panel: #ffffff; --panel2: #eef3f6; --line: #dde5ec;
     --text: #1b2a38; --muted: #5b7186;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
     background: var(--bg); color: var(--text); }
-  header { padding: 21px 30px; background: var(--gc-blue); color: #fff;
+  header { padding: 21px 30px; background: var(--brand-blue); color: #fff;
     display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
   header h1 { font-size: 24px; margin: 0; font-weight: 650; }
   header .sub { color: #9fbdd4; font-size: 16.5px; }
   .hspace { flex: 1; }
   .badge { font-size: 16.5px; padding: 4.5px 13.5px; border-radius: 999px;
     border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
-  .badge.llm { color: #12310a; background: var(--gc-bright); border-color: var(--gc-bright); font-weight: 700; }
-  .badge.offline { color: var(--gc-yellow); border-color: var(--gc-yellow); }
-  .badge.ok { color: var(--gc-bright); border-color: var(--gc-bright); }
-  .badge.bad { color: #ffc0cb; border-color: var(--gc-red); background: rgba(228,0,43,.25); }
+  .badge.llm { color: #12310a; background: var(--brand-bright); border-color: var(--brand-bright); font-weight: 700; }
+  .badge.offline { color: var(--brand-yellow); border-color: var(--brand-yellow); }
+  .badge.ok { color: var(--brand-bright); border-color: var(--brand-bright); }
+  .badge.bad { color: #ffc0cb; border-color: var(--brand-red); background: rgba(228,0,43,.25); }
   main { padding: 30px; max-width: 1180px; margin: 0 auto; }
   h2 { font-size: 19.5px; margin: 0 0 15px; font-weight: 650; }
   h2 .hint { font-weight: 400; font-size: 16.5px; color: var(--muted); margin-left: 9px; }
@@ -38,18 +38,18 @@
   @media (max-width: 860px) { .g3, .g2, .g4 { grid-template-columns: 1fr; } }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13.5px;
     padding: 21px 24px; box-shadow: 0 1.5px 4.5px rgba(0,43,73,.05); }
-  .card.hero { border-color: var(--gc-mildblue); box-shadow: 0 3px 12px rgba(0,114,206,.13); }
+  .card.hero { border-color: var(--brand-mildblue); box-shadow: 0 3px 12px rgba(0,114,206,.13); }
   .label { font-size: 16.5px; color: var(--muted); }
   .value { font-size: 42px; font-weight: 700; line-height: 1.2; margin: 9px 0 3px;
-    font-variant-numeric: tabular-nums; color: var(--gc-blue); }
-  .value.warnhi { color: var(--gc-red); }
+    font-variant-numeric: tabular-nums; color: var(--brand-blue); }
+  .value.warnhi { color: var(--brand-red); }
   .value small { font-size: 21px; font-weight: 600; color: var(--muted); }
   .note { font-size: 15.5px; color: var(--muted); line-height: 1.55; margin-top: 6px; }
   .axis { display: flex; align-items: center; gap: 15px; margin-bottom: 13.5px; }
   .axis .name { width: 210px; flex: none; font-size: 17px; }
   .axis .name em { font-style: normal; color: var(--muted); font-size: 14.5px; display: block; }
   .bar { flex: 1; height: 15px; background: var(--panel2); border-radius: 999px; overflow: hidden; }
-  .bar i { display: block; height: 100%; background: var(--gc-mildblue); border-radius: 999px;
+  .bar i { display: block; height: 100%; background: var(--brand-mildblue); border-radius: 999px;
     transition: width .4s ease; }
   .axis .cnt { width: 66px; text-align: right; font-variant-numeric: tabular-nums;
     font-weight: 650; font-size: 17px; }
@@ -64,7 +64,7 @@
     font-size: 15.5px; line-height: 1.7; }
   footer b { color: var(--text); }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--gc-mildgreen); margin-right: 6px; animation: pulse 2s infinite; }
+    background: var(--brand-mildgreen); margin-right: 6px; animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
 </style>
 </head>

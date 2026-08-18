@@ -2,8 +2,8 @@
 
 > 제약회사 **RA(인허가/규제업무)·PV(약물감시)** 담당자를 위한 규제문서 검색·업무 자동화
 > AI 어시스턴트의 **작동하는 최소 데모(MVP)**.
-> **GC녹십자가 공개한 `Hey.GC 2.0` 방향성(Agentic AI + MCP 사내 시스템 통합)과 같은 구조 원리**로 설계 —
-> 공고 필수 스택(RAG 최적화 · Agentic Workflow · Function Calling · MCP/FastMCP · FastAPI)을 한 프로젝트로 증명한다.
+> **Agentic AI + MCP 로 사내 시스템을 통합하는 구조 원리**로 설계 —
+> RAG 최적화 · Agentic Workflow · Function Calling · MCP/FastMCP · FastAPI 를 한 프로젝트로 증명한다.
 
 ## 1. 문제 정의 (왜 RA·PV인가)
 
@@ -77,14 +77,14 @@ flowchart TB
 ```
 
 **핵심 설계 포인트:** 모델(에이전트)과 도구(RA·PV 업무 시스템)가 **MCP 규격으로 분리** —
-한 번 만든 도구를 Claude Desktop·Cursor·사내 에이전트 어디서든 재사용한다(`Hey.GC 2.0`과 같은 확장성 원리).
+한 번 만든 도구를 Claude Desktop·Cursor·사내 에이전트 어디서든 재사용한다.
 
-## 4. 기술 스택 ↔ 채용공고 매핑
+## 4. 기술 스택
 
-| 공고 요구 | 이 프로젝트에서 | 위치 |
+| 핵심 역량 | 이 프로젝트에서 | 위치 |
 |---|---|---|
 | **RAG 최적화** | 구조 청킹, 하이브리드(밀집임베딩 e5+BM25 — TF-IDF 자동 폴백), 4신호 리랭킹+섹션 prior, 질의확장, 스윕/ablation 재현 | `src/rag/`, `eval/` |
-| **제약/바이오 산업 이해** | RA·PV 도메인 도구 — RA: 검색·마감·체크리스트 / PV: 트리아지→인과성→코딩(3계층)→ICSR 초안 + 라벨 22케이스 평가 | `src/ra/`, `src/pv/`, `eval/pv_eval.py` |
+| **제약/바이오 도메인** | RA·PV 도메인 도구 — RA: 검색·마감·체크리스트 / PV: 트리아지→인과성→코딩(3계층)→ICSR 초안 + 라벨 22케이스 평가 | `src/ra/`, `src/pv/`, `eval/pv_eval.py` |
 | **개인정보 보호** | PII 비식별화 2겹(에이전트 입구+도구 계층) — 한글 직결·조사 표기까지 룩어라운드 경계 | `src/pv/redactor.py` |
 | **MCP / FastMCP** | Tools 7 + Resource + Prompt(3대 primitive), 독립 HTTP 서버(운영)/stdio(Claude Desktop) | `src/mcp_server/server.py` |
 | **Agentic / Function Calling** | tool-use 루프, 도구 에러 자가복구, 오프라인 규칙 라우터 폴백 | `src/agent/agent.py` |

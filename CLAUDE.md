@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-이 저장소는 GC녹십자 FDE(Forward Deployed Engineer) 지원 준비 자료다.
-`project/` 에는 포트폴리오 데모 **RAPV-Assistant**, 루트와 `직접작성/` 에는 지원 문서(자소서·경력기술서 등)가 있다.
+이 저장소는 포트폴리오 프로젝트 **RAPV-Assistant** 의 저장소다.
+`project/` 에 프로젝트 본체가 있고, 루트와 `직접작성/` 의 지원 문서(자소서·경력기술서 등)는 gitignore 된 로컬 전용 자료다.
 
 ## RA·PV 표기 규칙 (필수)
 
@@ -15,7 +15,6 @@ RAPV-Assistant 는 **RA(인허가/규제업무)와 PV(약물감시) 두 도메�
 - 사용자·에이전트 라벨(문서 본문, mermaid/SVG 다이어그램 포함): "RA·PV 담당자", "RA·PV 에이전트"
 - MCP 도구 서버·업무 시스템 지칭: "RA·PV 도구 서버", "RA·PV 업무 시스템"
 - `data/ra_tasks.json` 을 가리키는 레이블: "RA·PV 업무 데이터" (PV팀 마감(PSUR·신속보고)이 포함되어 있음)
-- 채용공고 "제약/바이오 산업 이해" 매핑: "RA·PV 도메인 도구로 증명"
 - 코드 docstring 에서 어시스턴트/서버 전체를 지칭할 때 (`src/agent/`, `src/api/`, `src/mcp_server/`)
 
 구분 기호는 가운뎃점 **`RA·PV`** 로 통일한다 (`RA/PV`, `RA, PV` 지양).
@@ -45,6 +44,6 @@ PV 도메인(`src/pv/` 케이스 처리 워크플로)이 항상 나란히 등장
 
 ```bash
 cd project
-.venv/bin/python -m pytest -q      # 353케이스
+.venv/bin/python -m pytest -q      # 381케이스
 .venv/bin/python -m src.preflight  # 배포 전 점검
 ```

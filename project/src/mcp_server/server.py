@@ -1,7 +1,7 @@
 """RA(규제업무)·PV(약물감시) 어시스턴트를 위한 MCP 서버.
 
-GC 'Hey.GC 2.0'가 MCP 구조로 사내 시스템을 통합하는 것과 동일한 패턴으로,
-제약 RA·PV 담당자의 업무 시스템(규제문서·마감일·체크리스트·이상사례 처리)을 MCP 도구로 노출한다.
+MCP 구조로 사내 시스템을 통합하는 패턴 그대로, 제약 RA·PV 담당자의
+업무 시스템(규제문서·마감일·체크리스트·이상사례 처리)을 MCP 도구로 노출한다.
 
 노출하는 MCP primitive:
   - Tools:     search_regulations / get_ra_deadlines / get_submission_checklist
